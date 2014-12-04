@@ -11,12 +11,8 @@ from theano.tensor.shared_randomstreams import RandomStreams
 from logistic_sgd import load_data
 from utils import tile_raster_images
 
-
-
 import Image
-
 import random
-
 import itertools
 
 
@@ -30,6 +26,42 @@ def random_combination(iterable, r):
 
 
 
+def load_MINST_data(dataset):
+    ''' Loads the dataset
+
+    :type dataset: string
+    :param dataset: the path to the dataset (here MNIST)
+    '''
+
+    #############
+    # LOAD DATA #
+    #############
+
+    # Download the MNIST dataset if it is not present
+    data_dir, data_file = os.path.split(dataset)
+    if data_dir == "" and not os.path.isfile(dataset):
+        # Check if dataset is in the data directory.
+        new_path = os.path.join(
+            os.path.split(__file__)[0],
+            "..",
+            "data",
+            dataset
+        )
+        if os.path.isfile(new_path) or data_file == 'mnist.pkl.gz':
+            dataset = new_path
+
+
+    print '... loading data'
+
+    # Load the dataset
+    f = gzip.open(dataset, 'rb')
+    train_set, valid_set, test_set = cPickle.load(f)
+    f.close()
+    #train_set, valid_set, test_set format: tuple(input, target)
+    #input is an numpy.ndarray of 2 dimensions (a matrix)
+    #witch row's correspond to an example. target is a
+    #numpy.ndarray of 1 dimensions (vector)) that have the same length as
+    #the number of rows in the input. It should give the target
 
 class multiViewAutoEncoder(object):
 
@@ -39,7 +71,7 @@ class multiViewAutoEncoder(object):
 
     def __init__(
         self,
-        numpy_rng,
+        numpy_rng=None,
         theano_rng=None,
         input=None,
         n_visible=784,
@@ -50,6 +82,7 @@ class multiViewAutoEncoder(object):
 	b2hid=None,
 	b1vis=None,
 	b2vis=None,
+        batch_sizr=20,
         lamda=4
 		):
 
@@ -174,13 +207,14 @@ class multiViewAutoEncoder(object):
 
 		comb=itertools.combinations(range(self.n_hidden),2)		
 		rand_comb=random_combination(comb,10*self.n_hidden)
-		correlation=[]
+		correlation=list()
 
 		for i in rand_comb:
-                        x1=y1[:,i[0]]-ones(20)*T.sum(y1[:,i[0]])/20
-                        x2=y2[:,i[1]]-ones(20)*T.sum(y2[:,i[1]])/20
-                        nr=T.sum(x1*x2)/(T.sqrt(x1*x1)*T.sqrt(T.sum(x2*x2)))
+                        x1=y1[:,i[0]]-(ones(self.batch_size)*T.sum(y1[:,i[0]])/self.batch_size)
+                        x2=y2[:,i[1]]-(ones(self.batch_size)*T.sum(y2[:,i[1]])/self.batch_size)
+                        nr=T.sum(x1*x2)/(T.sqrt(T.sum(x1*x1))*T.sqrt(T.sum(x2*x2)))
 			correlation.append(nr)
+                
                         
                 tot_correlation =T.sum(correlation)
 
@@ -202,7 +236,7 @@ class multiViewAutoEncoder(object):
 		
 def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,dataset='mnist.pkl.gz',output_folder='MVAE_plots'):
 	
-    dataset=load_data(dataset)
+    dataset=load_MINST_data(dataset)
     train_set_x=theano.shared(numpy.asarray(numpy.zeros((100,728)),dtype=theano.config.floatX),borrow=True)
 
     train_set_x,train_set_y=dataset[0]
