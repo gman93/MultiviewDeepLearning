@@ -3,11 +3,11 @@ import sys
 import time
 from numpy import *
 import numpy
-
+import gzip
 import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
-
+import cPickle
 from utils import tile_raster_images
 
 import Image
@@ -26,17 +26,8 @@ def random_combination(iterable, r):
 
 
 def load_MINST_data(dataset):
-    ''' Loads the dataset
+   
 
-    :type dataset: string
-    :param dataset: the path to the dataset (here MNIST)
-    '''
-
-    #############
-    # LOAD DATA #
-    #############
-
-    # Download the MNIST dataset if it is not present
     data_dir, data_file = os.path.split(dataset)
     if data_dir == "" and not os.path.isfile(dataset):
         # Check if dataset is in the data directory.
@@ -53,8 +44,10 @@ def load_MINST_data(dataset):
     print '... loading data'
 
     # Load the dataset
+    print dataset
     f = gzip.open(dataset, 'rb')
     train_set, valid_set, test_set = cPickle.load(f)
+    print len(train_set)
     f.close()
     #train_set, valid_set, test_set format: tuple(input, target)
     #input is an numpy.ndarray of 2 dimensions (a matrix)
