@@ -253,8 +253,8 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
     os.chdir(output_folder)
 
     multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=500)
-    cost,updates=multiViewAE.get_cost_updates(learning_rate=0.1)
-    train_MVAE=theano.function([index],cost,updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]})
+    cost,updat=multiViewAE.get_cost_updates(learning_rate=0.1)
+    train_MVAE=theano.function([index],cost,updates=updat,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]})
 
     start_time=time.clock()
 
