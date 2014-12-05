@@ -47,8 +47,8 @@ def load_MINST_data(dataset):
     print dataset
     f = gzip.open(dataset, 'rb')
     train_set, valid_set, test_set = cPickle.load(f)
-    print len(train_set)
     f.close()
+    return train_set
     #train_set, valid_set, test_set format: tuple(input, target)
     #input is an numpy.ndarray of 2 dimensions (a matrix)
     #witch row's correspond to an example. target is a
@@ -74,7 +74,7 @@ class multiViewAutoEncoder(object):
 	b2hid=None,
 	b1vis=None,
 	b2vis=None,
-        batch_sizr=20,
+        batch_size=20,
         lamda=4
 		):
 
@@ -161,6 +161,8 @@ class multiViewAutoEncoder(object):
                 self.W2_prime=self.W2.T
 
                 self.lamda=lamda
+
+                self.batch_size=batch_size
 		if input is None:
 			self.x=T.dmatrix(name='input')
 		else:
@@ -231,9 +233,9 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
     dataset=load_MINST_data(dataset)
     train_set_x=theano.shared(numpy.asarray(numpy.zeros((100,728)),dtype=theano.config.floatX),borrow=True)
 
-    train_set_x,train_set_y=dataset[0]
+    train_set_x,train_set_y=dataset
 
-    n_train_batches=train_set_x.get_value(borrow=True).shape[0]/batch_size
+    n_train_batches=train_set_x.shape[0]/batch_size
 
     index=T.lscalar()
     x=T.matrix('x')
