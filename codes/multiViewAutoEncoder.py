@@ -9,7 +9,7 @@ import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 import cPickle
 from utils import tile_raster_images
-
+from logistic_sgd import load_data
 import Image
 import random
 import itertools
@@ -25,7 +25,7 @@ def random_combination(iterable, r):
 
 
 
-def load_MINST_data(dataset):
+def load__data(dataset):
    
 
     data_dir, data_file = os.path.split(dataset)
@@ -48,7 +48,7 @@ def load_MINST_data(dataset):
     f = gzip.open(dataset, 'rb')
     train_set, valid_set, test_set = cPickle.load(f)
     f.close()
-    return train_set
+    
     #train_set, valid_set, test_set format: tuple(input, target)
     #input is an numpy.ndarray of 2 dimensions (a matrix)
     #witch row's correspond to an example. target is a
@@ -230,10 +230,10 @@ class multiViewAutoEncoder(object):
 		
 def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,dataset='mnist.pkl.gz',output_folder='MVAE_plots'):
 	
-    dataset=load_MINST_data(dataset)
+    dataset=load_data(dataset)
     train_set_x=theano.shared(numpy.asarray(numpy.zeros((100,728)),dtype=theano.config.floatX),borrow=True)
 
-    train_set_x,train_set_y=dataset
+    train_set_x,train_set_y=dataset[0]
 
     n_train_batches=train_set_x.shape[0]/batch_size
 
