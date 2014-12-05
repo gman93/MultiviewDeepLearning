@@ -212,7 +212,7 @@ class multiViewAutoEncoder(object):
                         
                 tot_correlation =T.sum(correlation)
 
-		L = L1+L2+(self.lamda*tot_correlation)
+		L = L1+L2#+(self.lamda*tot_correlation)
                 cost=T.mean(L)
 		
 		gradients=T.grad(cost,self.params)
@@ -235,7 +235,7 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
 
     train_set_x,train_set_y=dataset[0]
 
-    n_train_batches=train_set_x.shape[0]/batch_size
+    n_train_batches=train_set_x.get_value().shape[0]/batch_size
 
     index=T.lscalar()
     x=T.matrix('x')
@@ -247,17 +247,19 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
     os.chdir(output_folder)
 
     multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=500)
-    cost,updat=multiViewAE.get_cost_updates(learning_rate=0.1)
-    train_MVAE=theano.function([index],cost,updates=updat,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]})
-
+    print "multiview auto encoder object initilized"
+    cost,updates=multiViewAE.get_cost_updates(learning_rate=0.1)
+    print "cost updates calculated"
+    train_MVAE=theano.function([index],cost,updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]})
+    print "train function defined"
     start_time=time.clock()
 
     for epoch in range(training_epochs):
     	c=[]
     	for batch_index in range(n_train_batches):
-    		c.append(train_da(batch_index))
+    		c.append(train_MVAE(batch_index))
 
-    	print 'Training epoch %d , cost %f '%epoch,numpy.mean(c)
+    	print 'Training epoch %d , cost '%epoch,numpy.mean(c)
 
     end_time=time.clock()
     training_time=(end_time-start_time)
@@ -269,14 +271,14 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
                           os.path.split(__file__)[1] +
                           ' ran for %.2fm' % ((training_time) / 60.))
     image = Image.fromarray(
-        tile_raster_images(X=da.W1.get_value(borrow=True).T,
+        tile_raster_images(X=multiViewAE.W1.get_value(borrow=True).T,
                            img_shape=(28, 28), tile_shape=(10, 10),
                            tile_spacing=(1, 1)))
     image.save('filters_view1.png')
 
 
     image = Image.fromarray(
-        tile_raster_images(X=da.W2.get_value(borrow=True).T,
+        tile_raster_images(X=multiViewAE.W2.get_value(borrow=True).T,
                            img_shape=(28, 28), tile_shape=(10, 10),
                            tile_spacing=(1, 1)))
     image.save('filters_view2.png')
