@@ -167,7 +167,7 @@ class multiViewAutoEncoder(object):
 			self.x=T.dmatrix(name='input')
 		else:
 			self.x=input
-		self.params=[self.W1,self.b1,self.b1_prime,self.W2,self.b2,self.b2_prime]
+		self.params=[self.W1,self.b1,self.W2,self.b2]
 
 
 	
@@ -203,16 +203,28 @@ class multiViewAutoEncoder(object):
 		rand_comb=random_combination(comb,10*self.n_hidden)
 		correlation=list()
 
-		for i in rand_comb:
-                        x1=y1[:,i[0]]-(ones(self.batch_size)*T.sum(y1[:,i[0]])/self.batch_size)
-                        x2=y2[:,i[1]]-(ones(self.batch_size)*T.sum(y2[:,i[1]])/self.batch_size)
-                        nr=T.sum(x1*x2)/(T.sqrt(T.sum(x1*x1))*T.sqrt(T.sum(x2*x2)))
-			correlation.append(nr)
+
+		random_pick_hidden_activation1=T.shared(numpy.zeros((self.batch_size,10*self.n_hidden),dtype=theano.config.floatX))
+		random_pick_hidden_activation2=T.shared(numpy.zeros((self.batch_size,10*self.n_hidden),dtype=theano.config.floatX))
+                j=0
+		for  i in rand_comb:
+			random_pick_hidden_activation1[:,j]=T.reshape(y1[:,i[0]]-(numpy.ones(self.batch_size)*T.sum(y1[:,i[0]])/self.batch_size),(1,self.batch_size))	
+			
+			random_pick_hidden_activation2[:,j]=T.reshape(y2[:,i[1]]-(numpy.ones(self.batch_size)*T.sum(y2[:,i[1]])/self.batch_size),(self.batch_size))	
+			
+			j=j+1
+		
+		correlation=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation, axis=1)
+		sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=1)
+		sigma_random_hidden_activation2=T.sum(random_pick_hidden_activation2*random_pick_hidden_activation2,axis=1)
+		
+		correlation=correlation/(sigma_random_hidden_activation1*sigma_random_hidden_activation2)
+		
                 
                         
                 tot_correlation =T.sum(correlation)
 
-		L = L1+L2#+(self.lamda*tot_correlation)
+		L = (self.lamda*tot_correlation)
                 cost=T.mean(L)
 		
 		gradients=T.grad(cost,self.params)
@@ -246,7 +258,7 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=2,d
 
     os.chdir(output_folder)
 
-    multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=500)
+    multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=400)
     print "multiview auto encoder object initilized"
     cost,updates=multiViewAE.get_cost_updates(learning_rate=0.1)
     print "cost updates calculated"
