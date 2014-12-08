@@ -208,9 +208,9 @@ class multiViewAutoEncoder(object):
 		random_pick_hidden_activation2=T.shared(numpy.zeros((self.batch_size,10*self.n_hidden),dtype=theano.config.floatX))
                 j=0
 		for  i in rand_comb:
-			random_pick_hidden_activation1[:,j]=T.reshape(y1[:,i[0]]-(numpy.ones(self.batch_size)*T.sum(y1[:,i[0]])/self.batch_size),(1,self.batch_size))	
+			T.set_subtensor(random_pick_hidden_activation1[:,j],T.reshape(y1[:,i[0]]-(numpy.ones(self.batch_size)*T.sum(y1[:,i[0]])/self.batch_size),(1,self.batch_size)))	
 			
-			random_pick_hidden_activation2[:,j]=T.reshape(y2[:,i[1]]-(numpy.ones(self.batch_size)*T.sum(y2[:,i[1]])/self.batch_size),(self.batch_size))	
+			T.set_subtensor(random_pick_hidden_activation2[:,j],T.reshape(y2[:,i[1]]-(numpy.ones(self.batch_size)*T.sum(y2[:,i[1]])/self.batch_size),(self.batch_size)))	
 			
 			j=j+1
 		
