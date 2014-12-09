@@ -239,8 +239,8 @@ class multiViewAutoEncoder(object):
 	'''
 
 
-	#random_pick_hidden_activation1=random_pick_hidden_activation1-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation1,axis=0)		
-	#random_pick_hidden_activation2=random_pick_hidden_activation2-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation2,axis=0)
+	random_pick_hidden_activation1=random_pick_hidden_activation1-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation1,axis=0)		
+	random_pick_hidden_activation2=random_pick_hidden_activation2-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation2,axis=0)
 
 	correlation=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation2, axis=0)
 	sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=0)
