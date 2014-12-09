@@ -325,8 +325,9 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
             perMat2=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
 	    multiViewAE.permMatW1.set_value(perMat1)
 	    multiViewAE.permMatW2.set_value(perMat2)
-    	    c.append(train_MVAE(batch_index))
-	    
+    	    itr_cost=train_MVAE(batch_index)
+	    c.append(itr_cost)
+	    print itr_cost
 
 
     	print 'Training epoch %d , cost '%epoch,numpy.mean(c)

@@ -13,7 +13,7 @@ from logistic_sgd import load_data
 import Image
 import random
 import itertools
-
+import matplotlib.pyplot as plt
 '''
 def random_combination(iterable, r):
     "Random selection from itertools.combinations(iterable, r)"
@@ -315,7 +315,7 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
     train_MVAE=theano.function([index],[cost],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
     print "train function defined"
     start_time=time.clock()
-
+    epoch_wise_cost=list()
     for epoch in range(training_epochs):
     	c=[]
         print "epoch %d staretd"%epoch
@@ -326,11 +326,16 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
 	    multiViewAE.permMatW1.set_value(perMat1)
 	    multiViewAE.permMatW2.set_value(perMat2)
     	    itr_cost=train_MVAE(batch_index)
-	    c.append(itr_cost)
-	    print itr_cost
+	    
 
 
     	print 'Training epoch %d , cost '%epoch,numpy.mean(c)
+	epoch_wise_cost.append(mean(c))
+
+    plt.plot(epoch_wise_cost)
+    plt.ylabel('cost')
+    plt.xlable('epoch')
+    plt.show()
 
     end_time=time.clock()
     training_time=(end_time-start_time)
