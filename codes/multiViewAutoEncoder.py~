@@ -96,7 +96,7 @@ class multiViewAutoEncoder(object):
 					size=(n_visible,n_hidden)),
 				dtype=theano.config.floatX
 			)
-		W1=theano.shared(value=initial_W1,name='W1',borrow=True)
+			W1=theano.shared(value=initial_W1,name='W1',borrow=True)
 		
 	if not W2:
 		initial_W2=numpy.asarray(
@@ -107,7 +107,7 @@ class multiViewAutoEncoder(object):
 				dtype=theano.config.floatX
 			)
 		
-		W2=theano.shared(value=initial_W2,name='W2',borrow=True)
+			W2=theano.shared(value=initial_W2,name='W2',borrow=True)
 		
 	if not b1vis:
 		b1vis= theano.shared(value=numpy.zeros(
@@ -275,8 +275,7 @@ class multiViewAutoEncoder(object):
 	updates=[]
 	for param,gparam in zip(self.params,gradients):
 		updates.append((param,param-learning_rate*gparam))
-	
-	return (cost,updates)
+		return (cost,updates)
 
 
 
