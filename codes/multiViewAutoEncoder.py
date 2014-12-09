@@ -76,8 +76,8 @@ class multiViewAutoEncoder(object):
 	b2vis=None,
         batch_size=20,
         lamda=4,
-	permMatW1=None,
-	permMatW2=None
+	perMatW1=None,
+	perMatW2=None
 		):
 
 	self.n_visible=n_visible
@@ -143,22 +143,13 @@ class multiViewAutoEncoder(object):
 					name='b2',
 					borrow=True
 				)
-	if not permMatW1:
+	if not perMatW1:
 			
-		permMatW1= theano.shared(value=numpy.zeros(
-					(n_hidden,10*n_hidden),
-					dtype=theano.config.floatX
-					),
-					borrow=True
-				)
-	if not permMatW2:
+		perMatW1=theano.shared(numpy.zeros((n_hidden,10*n_hidden)))
 
-		permMatW2= theano.shared(value=numpy.zeros(
-					(n_hidden,10*n_hidden),
-					dtype=theano.config.floatX
-					),
-					borrow=True
-				)
+	if not perMatW2:
+
+		perMatW2= theano.shared(numpy.zeros((n_hidden,10*n_hidden)))
 
 	self.W1=W1
 		
@@ -180,9 +171,9 @@ class multiViewAutoEncoder(object):
 
         self.lamda=lamda
 		
-	self.permMatW1=permMatW1
+	self.permMatW1=perMatW1
 
-	self.permMatW2=permMatW2
+	self.permMatW2=perMatW2
 
 
         self.batch_size=batch_size
@@ -191,7 +182,7 @@ class multiViewAutoEncoder(object):
 	else:
 		self.x=input
 		
-        self.params=[self.W1,self.b1,self.W2,self.b2]
+        self.params=[self.W1,self.b1,self.b1_prime,self.W2,self.b2,self.b2_prime]
 
 
 	
@@ -208,10 +199,12 @@ class multiViewAutoEncoder(object):
     	return T.nnet.sigmoid(T.dot(input,self.W2)+self.b2)
 		    
     def get_perm_hidden_values1(self,input):
-    	return T.nnet.sigmoid(T.dot(input,T.dot(self.W1,self.permMatW1)))
+	permW1=T.dot(self.W1,self.permMatW1)
+    	return T.nnet.sigmoid(T.dot(input,permW1))
 
     def get_perm_hidden_values2(self,input):
-    	return T.nnet.sigmoid(T.dot(input,T.dot(self.W2,self.permMatW2)))
+	permW2=T.dot(self.W2,self.permMatW2)
+    	return T.nnet.sigmoid(T.dot(input,permW2))
     
     def get_cost_updates(self,learning_rate):
 		
@@ -228,6 +221,9 @@ class multiViewAutoEncoder(object):
 	L1=-T.sum(self.x*T.log(z1)+(1-self.x)*T.log(1-z1),axis=1)
 	L2=-T.sum(self.x*T.log(z2)+(1-self.x)*T.log(1-z2),axis=1)
 
+	#self.permMatW1=permat1
+	#self.permMatW2=permat2
+
 	'''comb=itertools.combinations_with_replacement(range(self.n_hidden),2)		
 		rand_comb=random_combination(comb,self.n_hidden)
 		#correlation=list()
@@ -243,15 +239,14 @@ class multiViewAutoEncoder(object):
 	'''
 
 
-	random_pick_hidden_activation1=random_pick_hidden_activation1-numpy.ones(self.batch_size)*((T.sum(random_pick_hidden_activation1,axis=0))/self.batch_size)		
-	
-	random_pick_hidden_activation2=random_pick_hidden_activation2-numpy.ones(self.batch_size)*((T.sum(random_pick_hidden_activation2,axis=0))/self.batch_size)
+	#random_pick_hidden_activation1=random_pick_hidden_activation1-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation1,axis=0)		
+	#random_pick_hidden_activation2=random_pick_hidden_activation2-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation2,axis=0)
 
 	correlation=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation2, axis=0)
 	sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=0)
 	sigma_random_hidden_activation2=T.sum(random_pick_hidden_activation2*random_pick_hidden_activation2,axis=0)
 		
-	correlation=T.abs_(correlation/(sigma_random_hidden_activation1*sigma_random_hidden_activation2))
+	correlation=T.abs_(correlation/T.sqrt(sigma_random_hidden_activation1*sigma_random_hidden_activation2))
 		
                 
                         
@@ -303,8 +298,7 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
     index=T.lscalar()
     perMat1=T.matrix()
     perMat2=T.matrix()
-    permMatW1=T.matrix()
-    permMatW2=T.matrix()
+    
 
     x=T.matrix('x')
 
@@ -318,7 +312,7 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
     print "multiview auto encoder object initilized"
     cost,updates=multiViewAE.get_cost_updates(learning_rate=0.1)
     print "cost updates calculated"
-    train_MVAE=theano.function([index,perMat1,perMat2],cost,updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size],permMatW1:perMat1,permMatW2:perMat2},on_unused_input='ignore')
+    train_MVAE=theano.function([index],[cost],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
     print "train function defined"
     start_time=time.clock()
 
@@ -329,7 +323,11 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
             print "training %d batch"%batch_index
 	    perMat1=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
             perMat2=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
-    	    c.append(train_MVAE(batch_index,perMat1,perMat2))
+	    multiViewAE.permMatW1.set_value(perMat1)
+	    multiViewAE.permMatW2.set_value(perMat2)
+    	    itr_cost=train_MVAE(batch_index)
+	    c.append(itr_cost)
+	    print itr_cost
 
 
     	print 'Training epoch %d , cost '%epoch,numpy.mean(c)
