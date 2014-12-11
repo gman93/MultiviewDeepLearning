@@ -205,7 +205,13 @@ class multiViewAutoEncoder(object):
     def get_perm_hidden_values2(self,input):
 	permW2=T.dot(self.W2,self.permMatW2)
     	return T.nnet.sigmoid(T.dot(input,permW2))
-    
+    def save_matrices(self,n):
+        numpy.save("resultsb1_"+str(n), self.b1.get_value(borrow=True))
+        numpy.save("resultsb1p_"+str(n), self.b1_prime.get_value(borrow=True))
+        numpy.save("resultsw1_"+str(n), self.W1.get_value(borrow=True))
+	numpy.save("resultsb2_"+str(n), self.b2.get_value(borrow=True))
+        numpy.save("resultsb2p_"+str(n), self.b2_prime.get_value(borrow=True))
+        numpy.save("resultsw2_"+str(n), self.W2.get_value(borrow=True))
     def get_cost_updates(self,learning_rate):
 		
 
@@ -246,7 +252,7 @@ class multiViewAutoEncoder(object):
 	sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=0)
 	sigma_random_hidden_activation2=T.sum(random_pick_hidden_activation2*random_pick_hidden_activation2,axis=0)
 		
-	correlation=T.abs_(correlation/T.sqrt(sigma_random_hidden_activation1*sigma_random_hidden_activation2))
+	correlation=(correlation/T.sqrt(sigma_random_hidden_activation1*sigma_random_hidden_activation2))**2
 		
                 
                         
@@ -271,7 +277,7 @@ class multiViewAutoEncoder(object):
 	for param,gparam in zip(self.params,gradients):
 		updates.append((param,param-learning_rate*gparam))
 	
-	return (cost,updates)
+	return (cost,updates,tot_correlation)
 
 
 
@@ -309,32 +315,38 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
     os.chdir(output_folder)
 
     multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=400)
+    multiViewAE.save_matrices(0)
     print "multiview auto encoder object initilized"
-    cost,updates=multiViewAE.get_cost_updates(learning_rate=0.1)
+    cost,updates,W1=multiViewAE.get_cost_updates(learning_rate=0.1)
     print "cost updates calculated"
-    train_MVAE=theano.function([index],[cost],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
+    train_MVAE=theano.function([index],[cost,W1],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
     print "train function defined"
     start_time=time.clock()
     epoch_wise_cost=list()
     for epoch in range(training_epochs):
-    	c=[]
+    	c=list()
         print "epoch %d staretd"%epoch
     	for batch_index in range(n_train_batches):
-            print "training %d batch"%batch_index
+	    if( batch_index%500==0 and batch_index!=0):            
+		print("finished training %dbatches,cost so far= %f")%(batch_index,mean(c))
 	    perMat1=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
             perMat2=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
 	    multiViewAE.permMatW1.set_value(perMat1)
 	    multiViewAE.permMatW2.set_value(perMat2)
-    	    itr_cost=train_MVAE(batch_index)
+    	    itr_cost,W1=train_MVAE(batch_index)
+	    c.append(itr_cost)
+	    print "iteration %d, cost %f, correlation "%(batch_index,itr_cost)
+	    print W1
+	multiViewAE.save_matrices(epoch)
 	    
 
 
-    	print 'Training epoch %d , cost '%epoch,numpy.mean(c)
+    	print ('Training epoch %d , cost %d')%(epoch,numpy.mean(c))
 	epoch_wise_cost.append(mean(c))
 
     plt.plot(epoch_wise_cost)
     plt.ylabel('cost')
-    plt.xlable('epoch')
+    plt.xlabel('epoch')
     plt.show()
 
     end_time=time.clock()
