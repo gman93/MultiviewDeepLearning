@@ -75,7 +75,7 @@ class multiViewAutoEncoder(object):
 	b1vis=None,
 	b2vis=None,
         batch_size=20,
-        lamda=4,
+        lamda=1,
 	perMatW1=None,
 	perMatW2=None
 		):
@@ -99,14 +99,15 @@ class multiViewAutoEncoder(object):
 		W1=theano.shared(value=initial_W1,name='W1',borrow=True)
 		
 	if not W2:
-		initial_W2=numpy.asarray(
+		'''initial_W2=numpy.asarray(
 				numpy_rng.uniform(
 					low=-4*numpy.sqrt(6./ (n_hidden+n_visible)),
 					high=4*numpy.sqrt(6./(n_hidden+n_visible)),
 					size=(n_visible,n_hidden)),
 				dtype=theano.config.floatX
-			)
-		
+			)'''
+
+		initial_W2=W1.get_value()
 		W2=theano.shared(value=initial_W2,name='W2',borrow=True)
 		
 	if not b1vis:
@@ -174,7 +175,9 @@ class multiViewAutoEncoder(object):
 	self.permMatW1=perMatW1
 
 	self.permMatW2=perMatW2
-
+        
+        self.flag=False
+	self.Firstflag=True
 
         self.batch_size=batch_size
 	if input is None:	
@@ -185,7 +188,7 @@ class multiViewAutoEncoder(object):
         self.params=[self.W1,self.b1,self.b1_prime,self.W2,self.b2,self.b2_prime]
 
 
-	
+    
     def get_reconstructed_input1(self,hidden):
    	return T.nnet.sigmoid(T.dot(hidden,self.W1_prime)+self.b1_prime)
 
@@ -227,8 +230,7 @@ class multiViewAutoEncoder(object):
 	L1=-T.sum(self.x*T.log(z1)+(1-self.x)*T.log(1-z1),axis=1)
 	L2=-T.sum(self.x*T.log(z2)+(1-self.x)*T.log(1-z2),axis=1)
 
-	#self.permMatW1=permat1
-	#self.permMatW2=permat2
+	
 
 	'''comb=itertools.combinations_with_replacement(range(self.n_hidden),2)		
 		rand_comb=random_combination(comb,self.n_hidden)
@@ -248,16 +250,14 @@ class multiViewAutoEncoder(object):
 	random_pick_hidden_activation1=random_pick_hidden_activation1-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation1,axis=0)		
 	random_pick_hidden_activation2=random_pick_hidden_activation2-numpy.ones((self.batch_size,10*self.n_hidden))*T.mean(random_pick_hidden_activation2,axis=0)
 
-	correlation=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation2, axis=0)
-	sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=0)
-	sigma_random_hidden_activation2=T.sum(random_pick_hidden_activation2*random_pick_hidden_activation2,axis=0)
-		
+	correlation=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation2, axis=0)+0.00001
+	sigma_random_hidden_activation1=T.sum(random_pick_hidden_activation1*random_pick_hidden_activation1,axis=0)+0.00001
+	sigma_random_hidden_activation2=T.sum(random_pick_hidden_activation2*random_pick_hidden_activation2,axis=0)+0.00001
 	correlation=(correlation/T.sqrt(sigma_random_hidden_activation1*sigma_random_hidden_activation2))**2
 		
                 
                         
         tot_correlation =T.sum(correlation)
-	print tot_correlation
 		
 
 	'''for i in range(self.n_hidden):
@@ -268,6 +268,15 @@ class multiViewAutoEncoder(object):
 		y2=y2-numpy.ones(self.batch_size)*((T.sum(y2,axis=0))/self.batch_size)
 		corr=T.sum(y1*y2,axis=0)/T.sqrt(T.sum(y1*y1,axis=0)*T.sum(y2*y2,axis=0))
 	'''
+	'''getL1Cost=theano.function([self.x],[T.mean(L1)])
+	getTotCorr=theano.function([self.x],[tot_correlation])
+	if(self.Firstflag==True):
+        	self.Firstflag=False
+		self.lamda=getL1Cost(self.x)/getTotCorr(self.x)
+	elif(self.flag==True):
+		self.Firstflag=True
+		self.flag=False'''
+
 		
 	L = L1+L2+(self.lamda*tot_correlation)
         cost=T.mean(L)
@@ -276,8 +285,7 @@ class multiViewAutoEncoder(object):
 	updates=[]
 	for param,gparam in zip(self.params,gradients):
 		updates.append((param,param-learning_rate*gparam))
-	
-	return (cost,updates,tot_correlation)
+	return (cost,updates,T.mean(L1),T.mean(L2),self.lamda*tot_correlation)
 
 
 
@@ -313,40 +321,61 @@ def testMultiviewAutoEncoders(learning_rate=.1,batch_size=20,training_epochs=10,
         os.makedirs(output_folder)
 
     os.chdir(output_folder)
-
+  
     multiViewAE=multiViewAutoEncoder(numpy_rng=None,theano_rng=None,input=x,n_visible=28*28,n_hidden=400)
     multiViewAE.save_matrices(0)
     print "multiview auto encoder object initilized"
-    cost,updates,W1=multiViewAE.get_cost_updates(learning_rate=0.1)
+    cost,updates,L1,L2,corr=multiViewAE.get_cost_updates(learning_rate=0.1)
     print "cost updates calculated"
-    train_MVAE=theano.function([index],[cost,W1],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
+    train_MVAE=theano.function([index],[cost,L1,L2,corr],updates=updates,givens={x:train_set_x[index*batch_size:(index+1)*batch_size]},on_unused_input='warn')
     print "train function defined"
     start_time=time.clock()
     epoch_wise_cost=list()
+    epoch_wise_L1=list()
+    epoch_wise_L2=list()
+    epoch_wise_corr=list()
     for epoch in range(training_epochs):
     	c=list()
+        reconError1=list()
+        reconError2=list()
+        corr=list()
         print "epoch %d staretd"%epoch
     	for batch_index in range(n_train_batches):
 	    if( batch_index%500==0 and batch_index!=0):            
 		print("finished training %dbatches,cost so far= %f")%(batch_index,mean(c))
+		print "total error:%f "%itr_cost
+            	print "reconstruction error:%f "%L1
+	    	print "reconstruction error:%f "%L2
+            	print itr_cost-(L1+L2)
 	    perMat1=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
             perMat2=get_permat(multiViewAE.n_hidden,10*multiViewAE.n_hidden)
 	    multiViewAE.permMatW1.set_value(perMat1)
 	    multiViewAE.permMatW2.set_value(perMat2)
-    	    itr_cost,W1=train_MVAE(batch_index)
+    	    itr_cost,L1,L2,corre=train_MVAE(batch_index)
 	    c.append(itr_cost)
-	    print "iteration %d, cost %f, correlation "%(batch_index,itr_cost)
-	    print W1
+            reconError1.append(L1)
+	    reconError2.append(L2)
+            corr.append(corre)
+	    #print "iteration cost%f"%itr_cost
+	    #print "iteration %d, cost %f, correlation "%(batch_index,itr_cost)
+	    
 	multiViewAE.save_matrices(epoch)
 	    
 
 
     	print ('Training epoch %d , cost %d')%(epoch,numpy.mean(c))
 	epoch_wise_cost.append(mean(c))
-
-    plt.plot(epoch_wise_cost)
-    plt.ylabel('cost')
+	epoch_wise_L1.append(mean(reconError1))
+	epoch_wise_L2.append(mean(reconError2))
+        epoch_wise_corr.append(mean(corr))
+    plt.plot(epoch_wise_cost,label="totalError")
+    plt.plot(epoch_wise_L1,label="ReconstructionError1")
+    plt.plot(epoch_wise_L2,label="ReconstructionError2")
+    #corr=[a-(b+c) for a,b,c in zip(epoch_wise_cost,L1,L2)]
+    plt.plot(epoch_wise_corr,label="Correlation")
+    plt.ylabel('cost') 
     plt.xlabel('epoch')
+    plt.legend(bbox_to_anchor=(1, 1),bbox_transform=plt.gcf().transFigure)
     plt.show()
 
     end_time=time.clock()
